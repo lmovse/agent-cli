@@ -138,18 +138,16 @@ export class TerminalView extends ItemView {
       return;
     }
 
-    const fileContent = await this.app.vault.read(activeFile);
-    const agentName = this.getAgentName(this.currentAgent);
+    // Get vault base path (full filesystem path)
+    const vaultBasePath = (this.app.vault.adapter as any).basePath || this.app.vault.getRoot().path;
+    const fullFilePath = `${vaultBasePath}/${activeFile.path}`;
 
-    this.terminal.writeln(`\x1b[1m--- Sending file context to ${agentName} ---\x1b[0m`);
-    this.terminal.writeln(`\x1b[2mFile: ${activeFile.path}\x1b[0m`);
-
-    // Send file content to process
+    // Send @filepath to terminal
     if (this.agentProcess && this.agentProcess.stdin) {
-      this.agentProcess.stdin.write(`/context ${activeFile.path}\n${fileContent}\n/end_context\r\n`);
+      this.agentProcess.stdin.write(`@${fullFilePath}\r`);
     }
 
-    new Notice(`Sent ${activeFile.path} to ${agentName}`, 3000);
+    new Notice(`Sent @${activeFile.path} to agent`, 3000);
   }
 
   sendToAgent(text: string): void {
