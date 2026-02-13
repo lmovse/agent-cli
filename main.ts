@@ -110,14 +110,29 @@ export default class AgentCLIPlugin extends Plugin {
     if (existingLeaves.length > 0) {
       leaf = existingLeaves[0];
     } else {
-      // Try to split to bottom and create terminal there
-      leaf = workspace.splitActiveLeaf('horizontal');
+      // Try to get right leaf without creating new one (will reuse existing if available)
+      leaf = workspace.getRightLeaf(false);
 
       if (leaf) {
-        await leaf.setViewState({
-          type: AGENT_TERMINAL_VIEW,
-          active: true,
-        });
+        // Check if it's already our view
+        if (leaf.view && leaf.view.getViewType() === AGENT_TERMINAL_VIEW) {
+          // Already our view, do nothing
+        } else {
+          // Replace with our terminal view
+          await leaf.setViewState({
+            type: AGENT_TERMINAL_VIEW,
+            active: true,
+          });
+        }
+      } else {
+        // No existing leaf, create new one
+        leaf = workspace.getRightLeaf(true);
+        if (leaf) {
+          await leaf.setViewState({
+            type: AGENT_TERMINAL_VIEW,
+            active: true,
+          });
+        }
       }
     }
 
