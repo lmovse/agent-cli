@@ -1,0 +1,280 @@
+/* Agent CLI Plugin Styles */
+
+/* xterm.js core styles - required for terminal to work */
+.xterm {
+    cursor: text;
+    position: relative;
+    user-select: none;
+    -ms-user-select: none;
+    -webkit-user-select: none;
+}
+
+.xterm .xterm-helpers {
+    position: absolute;
+    top: 0;
+    z-index: 5;
+}
+
+.xterm .xterm-helper-textarea {
+    padding: 0;
+    border: 0;
+    margin: 0;
+    position: absolute;
+    opacity: 0;
+    left: -9999em;
+    top: 0;
+    width: 0;
+    height: 0;
+    z-index: -5;
+    white-space: nowrap;
+    overflow: hidden;
+    resize: none;
+}
+
+.xterm .xterm-viewport {
+    background-color: var(--background-primary);
+    overflow-y: scroll;
+    cursor: default;
+    position: absolute;
+    right: 0;
+    left: 0;
+    top: 0;
+    bottom: 0;
+}
+
+.xterm .xterm-screen {
+    position: relative;
+}
+
+.xterm .xterm-screen canvas {
+    position: absolute;
+    left: 0;
+    top: 0;
+}
+
+.xterm .xterm-scroll-area {
+    visibility: hidden;
+}
+
+.xterm-char-measure-element {
+    display: inline-block;
+    visibility: hidden;
+    position: absolute;
+    top: 0;
+    left: -9999em;
+    line-height: normal;
+}
+
+.xterm.enable-mouse-events {
+    cursor: default;
+}
+
+.xterm.xterm-cursor-pointer,
+.xterm .xterm-cursor-pointer {
+    cursor: pointer;
+}
+
+.xterm.column-select.focus {
+    cursor: crosshair;
+}
+
+.xterm-dim {
+    opacity: 1 !important;
+}
+
+/* Container */
+.agent-terminal-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--background-primary);
+  overflow: hidden;
+}
+
+/* Header */
+.agent-terminal-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  background-color: var(--background-secondary);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.agent-terminal-header select {
+  flex: 1;
+  min-width: 120px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.agent-terminal-header button {
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.agent-terminal-header button:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.agent-refresh-btn:hover {
+  color: var(--text-accent);
+}
+
+.agent-send-file-btn:hover {
+  color: var(--text-success);
+}
+
+/* Terminal wrapper */
+.terminal-wrapper {
+  flex: 1;
+  overflow: hidden;
+  padding: 8px;
+  background-color: var(--background-primary);
+}
+
+.terminal-wrapper .xterm {
+  height: 100%;
+}
+
+/* Let xterm.js handle scrolling natively - do NOT override these styles */
+/*
+.terminal-wrapper .xterm-viewport {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  height: auto !important;
+  max-height: none !important;
+  position: relative !important;
+}
+
+.terminal-wrapper .xterm-scroll-area {
+  min-height: 0 !important;
+  max-height: none !important;
+  height: auto !important;
+}
+*/
+
+/* Hide xterm.js char measure element but keep it functional */
+/* .terminal-wrapper .xterm-char-measure-element {
+  visibility: hidden !important;
+  position: absolute !important;
+  pointer-events: none !important;
+}
+
+.terminal-wrapper .xterm-helper-textarea {
+  visibility: hidden !important;
+  position: absolute !important;
+  pointer-events: none !important;
+} */
+
+/* Settings panel styles */
+.agent-setting-header {
+  margin-bottom: 10px;
+}
+
+.agent-setting-header h4 {
+  margin: 0;
+  color: var(--text-normal);
+}
+
+/* Ribbon icon animation */
+.workspace-ribbon .ribbon-action {
+  position: relative;
+}
+
+.workspace-ribbon .ribbon-action[data-icon="terminal"]:hover::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--text-accent-hover);
+  border-radius: 4px;
+  opacity: 0.2;
+}
+
+/* Status bar integration */
+.status-bar-item.mod-agent-cli {
+  cursor: pointer;
+}
+
+.status-bar-item.mod-agent-cli:hover {
+  color: var(--text-accent);
+}
+
+/* Command palette suggestion styling */
+.suggestion-item[data-autocomplete="agent-cli"] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.suggestion-item[data-autocomplete="agent-cli"]::before {
+  content: '🤖';
+}
+
+/* Loading animation for agent connection */
+@keyframes agent-loading {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.agent-loading {
+  animation: agent-loading 1s ease-in-out infinite;
+}
+
+/* Context indicator */
+.context-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background-color: var(--background-modifier-success);
+  color: var(--text-on-success);
+  font-size: 11px;
+}
+
+/* Error state */
+.agent-error {
+  color: var(--text-error);
+  background-color: var(--background-modifier-error);
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+
+/* Success state */
+.agent-success {
+  color: var(--text-success);
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .agent-terminal-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .agent-terminal-header select,
+  .agent-terminal-header button {
+    width: 100%;
+  }
+}

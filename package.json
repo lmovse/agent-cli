@@ -1,0 +1,31 @@
+{
+  "name": "agent-cli",
+  "version": "1.0.0",
+  "description": "Integrate AI agents terminal into Obsidian",
+  "main": "main.js",
+  "types": "types",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
+  },
+  "keywords": [
+    "obsidian",
+    "terminal",
+    "agent",
+    "claude",
+    "gemini",
+    "codex"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^16.11.6",
+    "builtin-modules": "^3.3.0",
+    "esbuild": "0.17.3",
+    "obsidian": "latest",
+    "tslib": "2.6.2",
+    "typescript": "5.3.3",
+    "@xterm/xterm": "^5.5.0",
+    "@xterm/addon-fit": "^0.11.0"
+  }
+}

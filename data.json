@@ -1,0 +1,28 @@
+{
+  "defaultAgent": "claude",
+  "agents": {
+    "claude": {
+      "id": "claude",
+      "name": "Claude CLI",
+      "command": "claude",
+      "enabled": true
+    },
+    "gemini": {
+      "id": "gemini",
+      "name": "Gemini CLI",
+      "command": "gemini",
+      "enabled": false
+    },
+    "codex": {
+      "id": "codex",
+      "name": "Codex CLI",
+      "command": "codex",
+      "enabled": false
+    }
+  },
+  "terminalFontSize": 13,
+  "terminalFontFamily": "\"JetBrains Mono\", \"Fira Code\", \"Cascadia Code\", \"Source Code Pro\", Menlo, Monaco, monospace",
+  "terminalTheme": "dark",
+  "autoSendCurrentFile": true,
+  "welcomeMessage": "Welcome to Agent CLI! Current file context loaded."
+}
