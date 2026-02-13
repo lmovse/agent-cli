@@ -42,10 +42,8 @@ export class TerminalView extends ItemView {
     this.containerEl.empty();
     this.containerEl.classList.add('agent-terminal-container');
 
-    this.createHeader();
     this.createTerminal();
     this.trackActiveFile();
-    await this.initializeContext();
     await this.startAgent();
   }
 
@@ -61,54 +59,6 @@ export class TerminalView extends ItemView {
 
   private getAgentName(agentId: AgentType): string {
     return this.settings.agents[agentId]?.name || agentId;
-  }
-
-  private createHeader(): void {
-    const header = this.containerEl.createDiv({ cls: 'agent-terminal-header' });
-
-    // Agent selector
-    const selector = header.createEl('select', { cls: 'agent-selector' });
-
-    Object.entries(this.settings.agents).forEach(([key, agent]) => {
-      if (agent.enabled) {
-        const option = selector.createEl('option', {
-          value: key,
-          text: agent.name,
-        });
-        if (key === this.currentAgent) {
-          option.selected = true;
-        }
-      }
-    });
-
-    selector.addEventListener('change', async (e: Event) => {
-      const target = e.target as HTMLSelectElement;
-      const newAgent = target.value as AgentType;
-      if (newAgent !== this.currentAgent) {
-        this.currentAgent = newAgent;
-        await this.restartAgent();
-      }
-    });
-
-    // Refresh button
-    const refreshBtn = header.createEl('button', {
-      cls: 'agent-refresh-btn',
-      text: '↻ Restart',
-    });
-
-    refreshBtn.addEventListener('click', async () => {
-      await this.restartAgent();
-    });
-
-    // Send current file button
-    const sendFileBtn = header.createEl('button', {
-      cls: 'agent-send-file-btn',
-      text: '📄 Send Current File',
-    });
-
-    sendFileBtn.addEventListener('click', async () => {
-      await this.sendCurrentFile();
-    });
   }
 
   private createTerminal(): void {
@@ -162,7 +112,6 @@ export class TerminalView extends ItemView {
 
     // Write welcome message
     this.terminal.writeln('\x1b[1;34m🤖 Agent CLI Terminal\x1b[0m');
-    this.terminal.writeln('\x1b[2mPress Enter to start interacting with your agent.\x1b[0m');
     this.terminal.writeln('');
 
     // Auto-focus the terminal
@@ -177,17 +126,6 @@ export class TerminalView extends ItemView {
     this.cleanupCallbacks.push(() => {
       this.app.workspace.off(eventRef, callback);
     });
-  }
-
-  private async initializeContext(): Promise<void> {
-    const activeFile = this.app.workspace.getActiveFile();
-    if (activeFile) {
-      this.terminal.writeln(`\x1b[32m📁 Current file: ${activeFile.path}\x1b[0m`);
-      this.terminal.writeln('');
-    } else {
-      this.terminal.writeln(`\x1b[33m⚠️ No file open. Open a file to use its content as context.\x1b[0m`);
-      this.terminal.writeln('');
-    }
   }
 
   async sendCurrentFile(): Promise<void> {
@@ -232,9 +170,9 @@ export class TerminalView extends ItemView {
   private async startAgent(): Promise<void> {
     const agentId = this.currentAgent;
     const agentConfig = this.settings.agents[agentId];
+    const agentCommand = agentConfig.command;
 
     this.terminal.writeln(`\x1b[1;32m🚀 Starting ${agentConfig.name}...\x1b[0m`);
-    this.terminal.writeln(`\x1b[2m[PTY MODE] Using Python PTY\x1b[0m`);
     this.terminal.writeln('');
 
     try {
@@ -252,18 +190,21 @@ export class TerminalView extends ItemView {
       // Escape the path for Python
       const escapedCwd = fullCwd.replace(/"/g, '\\"');
 
-      // Python PTY script - properly load user config
+      // Python PTY script - properly load user config and start agent
       const pythonScript = [
         'import os',
         'import pty',
         'import selectors',
         'import sys',
+        'import time',
         'os.chdir("' + escapedCwd + '")',
         'pid, pty_fd = pty.fork()',
         'if pid == 0:',
         '    os.environ["PS1"] = "%F{green}%n@%m%f:%F{blue}%~%f$ "',
         '    os.execvp("/bin/zsh", ["/bin/zsh", "-i"])',
         'else:',
+        '    time.sleep(0.5)',
+        '    os.write(pty_fd, ("' + agentCommand + '\\n").encode())',
         '    sel = selectors.DefaultSelector()',
         '    sel.register(pty_fd, selectors.EVENT_READ)',
         '    sel.register(sys.stdin.fileno(), selectors.EVENT_READ)',
@@ -346,9 +287,22 @@ export class TerminalView extends ItemView {
     }
   }
 
-  private async restartAgent(): Promise<void> {
+  async restartAgent(): Promise<void> {
     this.stopAgent();
     await this.startAgent();
+  }
+
+  async openAgentSelector(): Promise<void> {
+    // Cycle through enabled agents
+    const enabledAgents = Object.keys(this.settings.agents).filter(
+      key => this.settings.agents[key as AgentType].enabled
+    ) as AgentType[];
+
+    const currentIndex = enabledAgents.indexOf(this.currentAgent);
+    const nextIndex = (currentIndex + 1) % enabledAgents.length;
+    this.currentAgent = enabledAgents[nextIndex];
+
+    await this.restartAgent();
   }
 
   updateSettings(settings: AgentCLIPluginSettings): void {

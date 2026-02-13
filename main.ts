@@ -41,6 +41,45 @@ export default class AgentCLIPlugin extends Plugin {
       },
     });
 
+    // Add command to switch agent
+    this.addCommand({
+      id: 'switch-agent',
+      name: 'Switch Agent',
+      callback: async () => {
+        const leaves = this.app.workspace.getLeavesOfType(AGENT_TERMINAL_VIEW);
+        if (leaves.length > 0) {
+          const view = leaves[0].view as TerminalView;
+          await view.openAgentSelector();
+        }
+      },
+    });
+
+    // Add command to restart agent
+    this.addCommand({
+      id: 'restart-agent',
+      name: 'Restart Agent',
+      callback: async () => {
+        const leaves = this.app.workspace.getLeavesOfType(AGENT_TERMINAL_VIEW);
+        if (leaves.length > 0) {
+          const view = leaves[0].view as TerminalView;
+          await view.restartAgent();
+        }
+      },
+    });
+
+    // Add command to send current file
+    this.addCommand({
+      id: 'send-current-file',
+      name: 'Send Current File to Agent',
+      callback: async () => {
+        const leaves = this.app.workspace.getLeavesOfType(AGENT_TERMINAL_VIEW);
+        if (leaves.length > 0) {
+          const view = leaves[0].view as TerminalView;
+          await view.sendCurrentFile();
+        }
+      },
+    });
+
     // Add settings tab
     this.addSettingTab(new SettingTab(this.app, this));
   }
@@ -71,8 +110,9 @@ export default class AgentCLIPlugin extends Plugin {
     if (existingLeaves.length > 0) {
       leaf = existingLeaves[0];
     } else {
-      // Create a new leaf in the right sidebar (near outline)
-      leaf = workspace.getRightLeaf(true);
+      // Try to split to bottom and create terminal there
+      leaf = workspace.splitActiveLeaf('horizontal');
+
       if (leaf) {
         await leaf.setViewState({
           type: AGENT_TERMINAL_VIEW,
