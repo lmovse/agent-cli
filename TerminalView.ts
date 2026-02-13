@@ -175,9 +175,6 @@ export class TerminalView extends ItemView {
     const agentConfig = this.settings.agents[agentId];
     const agentCommand = agentConfig.command;
 
-    this.terminal.writeln(`\x1b[1;32m🚀 Starting ${agentConfig.name}...\x1b[0m`);
-    this.terminal.writeln('');
-
     try {
       const userHome = process.env.HOME || process.env.USERPROFILE;
       const activeFile = this.app.workspace.getActiveFile();
