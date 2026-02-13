@@ -150,6 +150,22 @@
   height: 100%;
 }
 
+/* Selection styling - ensure text is visible when selected */
+.terminal-wrapper .xterm .xterm-screen canvas::selection {
+  background-color: #264f78 !important;
+  color: #ffffff !important;
+}
+
+.terminal-wrapper .xterm-selection div {
+  background-color: rgba(38, 79, 120, 0.8) !important;
+  color: #ffffff !important;
+}
+
+/* Ensure selection overlay has proper contrast */
+.terminal-wrapper .xterm-selection {
+  background-color: rgba(38, 79, 120, 0.5) !important;
+}
+
 /* Let xterm.js handle scrolling natively - do NOT override these styles */
 /*
 .terminal-wrapper .xterm-viewport {

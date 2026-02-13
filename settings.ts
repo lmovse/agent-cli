@@ -16,7 +16,6 @@ export interface AgentCLIPluginSettings {
   };
   terminalFontSize: number;
   terminalFontFamily: string;
-  terminalTheme: 'dark' | 'light';
   autoSendCurrentFile: boolean;
   welcomeMessage: string;
 }
@@ -45,7 +44,6 @@ export const DEFAULT_SETTINGS: AgentCLIPluginSettings = {
   },
   terminalFontSize: 13,
   terminalFontFamily: '"JetBrains Mono Regular", "Fira Code", "Cascadia Code", "Source Code Pro", Menlo, Monaco, monospace',
-  terminalTheme: 'dark',
   autoSendCurrentFile: true,
   welcomeMessage: 'Welcome to Agent CLI! Current file context loaded.',
 };

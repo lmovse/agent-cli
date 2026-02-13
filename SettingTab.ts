@@ -80,20 +80,6 @@ export class SettingTab extends PluginSettingTab {
         });
       });
 
-    // Theme
-    new Setting(containerEl)
-      .setName('Terminal Theme')
-      .setDesc('Choose light or dark theme')
-      .addDropdown((dropdown) => {
-        dropdown.addOption('dark', 'Dark');
-        dropdown.addOption('light', 'Light');
-        dropdown.setValue(this.plugin.settings.terminalTheme);
-        dropdown.onChange(async (value: 'dark' | 'light') => {
-          this.plugin.settings.terminalTheme = value;
-          await this.plugin.saveSettings();
-        });
-      });
-
     // Auto send current file
     new Setting(containerEl)
       .setName('Auto-send Current File')

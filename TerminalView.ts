@@ -64,11 +64,14 @@ export class TerminalView extends ItemView {
   private createTerminal(): void {
     const terminalContainer = this.containerEl.createDiv({ cls: 'terminal-wrapper' });
 
+    // Auto-detect Obsidian theme
+    const isDarkTheme = document.body.classList.contains('theme-dark');
+
     // Use default rows, fit addon will adjust automatically
     this.terminal = new Terminal({
       fontSize: this.settings.terminalFontSize,
       fontFamily: this.settings.terminalFontFamily,
-      theme: this.settings.terminalTheme === 'dark'
+      theme: isDarkTheme
         ? {
             background: '#1e1e1e',
             foreground: '#d4d4d4',
