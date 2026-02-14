@@ -155,13 +155,9 @@ export class TerminalView extends ItemView {
       return;
     }
 
-    // Get vault base path (full filesystem path)
-    const vaultBasePath = (this.app.vault.adapter as any).basePath || this.app.vault.getRoot().path;
-    const fullFilePath = `${vaultBasePath}/${activeFile.path}`;
-
-    // Send @filepath to terminal
+    // Send vault-relative path to terminal
     if (this.agentProcess && this.agentProcess.stdin) {
-      this.agentProcess.stdin.write(`@${fullFilePath}\r`);
+      this.agentProcess.stdin.write(`@${activeFile.path}\r`);
     }
 
     new Notice(`Sent @${activeFile.path} to agent`, 3000);
@@ -192,18 +188,12 @@ export class TerminalView extends ItemView {
 
     try {
       const userHome = process.env.HOME || process.env.USERPROFILE;
-      const activeFile = this.app.workspace.getActiveFile();
 
       // Get vault base path (full filesystem path)
       const vaultBasePath = (this.app.vault.adapter as any).basePath || this.app.vault.getRoot().path;
 
-      // Get current file's directory, or vault root if no file
-      const fullCwd = activeFile
-        ? `${vaultBasePath}/${activeFile.parent?.path || activeFile.path}`
-        : vaultBasePath;
-
-      // Escape the path for Python
-      const escapedCwd = fullCwd.replace(/"/g, '\\"');
+      // Use vault root as working directory
+      const escapedCwd = vaultBasePath.replace(/"/g, '\\"');
 
       // Python PTY script - properly load user config and start agent
       const pythonScript = [
