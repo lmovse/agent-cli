@@ -22,7 +22,6 @@
   },
   "terminalFontSize": 13,
   "terminalFontFamily": "\"JetBrains Mono\", \"Fira Code\", \"Cascadia Code\", \"Source Code Pro\", Menlo, Monaco, monospace",
-  "terminalTheme": "dark",
   "autoSendCurrentFile": true,
   "welcomeMessage": "Welcome to Agent CLI! Current file context loaded."
 }

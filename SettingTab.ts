@@ -65,14 +65,17 @@ export class SettingTab extends PluginSettingTab {
         slider.onChange(async (value) => {
           this.plugin.settings.terminalFontSize = value;
           await this.plugin.saveSettings();
+          slider.showTooltip();
         });
+        slider.showTooltip();
       });
 
     // Font family
     new Setting(containerEl)
       .setName('Font Family')
-      .setDesc('Terminal font family')
+      .setDesc('Terminal font family (e.g., Menlo, Monaco, monospace)')
       .addText((text) => {
+        text.setPlaceholder('"JetBrains Mono Regular", "Fira Code", "Cascadia Code", "Source Code Pro", Menlo, Monaco, monospace');
         text.setValue(this.plugin.settings.terminalFontFamily);
         text.onChange(async (value) => {
           this.plugin.settings.terminalFontFamily = value;
