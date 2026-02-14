@@ -18,8 +18,14 @@ export class TerminalView extends ItemView {
 
   constructor(leaf: WorkspaceLeaf, private plugin: AgentCLIPlugin) {
     super(leaf);
+    // Load initial settings from plugin
     this.settings = { ...DEFAULT_SETTINGS, ...plugin.settings };
     this.currentAgent = this.settings.defaultAgent;
+  }
+
+  // Method to refresh settings from plugin
+  refreshSettings(): void {
+    this.settings = { ...DEFAULT_SETTINGS, ...this.plugin.settings };
   }
 
   getViewType(): string {
@@ -45,6 +51,17 @@ export class TerminalView extends ItemView {
     this.createTerminal();
     this.trackActiveFile();
     await this.startAgent();
+
+    // Auto-send current file if enabled
+    if (this.settings.autoSendCurrentFile) {
+      const activeFile = this.app.workspace.getActiveFile();
+      if (activeFile) {
+        // Delay slightly to ensure agent is ready
+        setTimeout(() => {
+          this.sendCurrentFile();
+        }, 1000);
+      }
+    }
   }
 
   async onClose(): Promise<void> {
@@ -303,11 +320,11 @@ export class TerminalView extends ItemView {
     await this.restartAgent();
   }
 
-  updateSettings(settings: AgentCLIPluginSettings): void {
-    this.settings = settings;
+  updateSettings(): void {
+    this.settings = { ...DEFAULT_SETTINGS, ...this.plugin.settings };
     if (this.terminal && this.fitAddon) {
-      this.terminal.options.fontSize = settings.terminalFontSize;
-      this.terminal.options.fontFamily = settings.terminalFontFamily;
+      this.terminal.options.fontSize = this.settings.terminalFontSize;
+      this.terminal.options.fontFamily = this.settings.terminalFontFamily;
       // Re-fit after font size changes
       this.fitAddon.fit();
     }
