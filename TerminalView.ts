@@ -51,17 +51,6 @@ export class TerminalView extends ItemView {
     this.createTerminal();
     this.trackActiveFile();
     await this.startAgent();
-
-    // Auto-send current file if enabled
-    if (this.settings.autoSendCurrentFile) {
-      const activeFile = this.app.workspace.getActiveFile();
-      if (activeFile) {
-        // Delay slightly to ensure agent is ready
-        setTimeout(() => {
-          this.sendCurrentFile();
-        }, 1000);
-      }
-    }
   }
 
   async onClose(): Promise<void> {
@@ -155,12 +144,10 @@ export class TerminalView extends ItemView {
       return;
     }
 
-    // Send vault-relative path to terminal
+    // Send vault-relative path to terminal (no notification)
     if (this.agentProcess && this.agentProcess.stdin) {
       this.agentProcess.stdin.write(`@${activeFile.path}\r`);
     }
-
-    new Notice(`Sent @${activeFile.path} to agent`, 3000);
   }
 
   sendToAgent(text: string): void {
