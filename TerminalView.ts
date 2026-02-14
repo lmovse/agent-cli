@@ -54,6 +54,13 @@ export class TerminalView extends ItemView {
   }
 
   async onClose(): Promise<void> {
+    // Clean up loading interval
+    const loadingInterval = (this as any).loadingInterval;
+    if (loadingInterval) {
+      clearInterval(loadingInterval);
+      (this as any).loadingInterval = null;
+    }
+
     this.cleanupCallbacks.forEach(cb => cb());
     this.stopAgent();
     this.terminal.dispose();
@@ -236,7 +243,6 @@ export class TerminalView extends ItemView {
           PATH: `/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/opt/local/bin:${userHome}/.local/bin`,
           HOME: userHome,
           TERM: 'xterm-256color',
-          PS1: '%F{green}%n@%m%f:%F{blue}%~%f$ ',
         },
         stdio: ['pipe', 'pipe', 'pipe'],
       });
@@ -299,7 +305,28 @@ export class TerminalView extends ItemView {
 
   private stopAgent(): void {
     if (this.agentProcess) {
-      this.agentProcess.kill();
+      // First close all stdio to break the connection
+      try {
+        this.agentProcess.stdin?.end();
+        this.agentProcess.stdout?.destroy();
+        this.agentProcess.stderr?.destroy();
+      } catch (e) {
+        // Ignore
+      }
+
+      // Kill the process group to ensure child processes are killed too
+      try {
+        if (this.agentProcess.pid) {
+          process.kill(-this.agentProcess.pid, 'SIGKILL');
+        }
+      } catch (e) {
+        // If process group doesn't work, try direct kill
+        try {
+          this.agentProcess.kill('SIGKILL');
+        } catch (e2) {
+          // Ignore if already dead
+        }
+      }
       this.agentProcess = null;
     }
   }
