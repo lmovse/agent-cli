@@ -164,35 +164,12 @@ export class SettingTab extends PluginSettingTab {
   }
 
   private async testAgentConnections(): Promise<void> {
-    const { spawn } = require('child_process');
-
     for (const [agentId, agent] of Object.entries(this.plugin.settings.agents)) {
       if (agent.enabled) {
         try {
-          const agentInfo = AGENT_INFO[agentId as AgentType];
-          this.terminal.writeln(`Testing ${agentInfo.name}...`);
-
-          const proc = spawn(agent.command, ['--version'], {
-            timeout: 5000,
-            shell: true,
-          });
-
-          let output = '';
-          proc.stdout?.on('data', (data: Buffer) => {
-            output += data.toString();
-          });
-
-          proc.on('close', (code: number) => {
-            if (code === 0) {
-              new Notice(`${agentInfo.name}: ✓ Connected`, 3000);
-            } else {
-              new Notice(`${agentInfo.name}: ✗ Not accessible`, 3000);
-            }
-          });
-
-          proc.on('error', () => {
-            new Notice(`${agentInfo.name}: ✗ Not found`, 3000);
-          });
+          // Test connection with timeout
+          const result = await this.testAgent(agent.command, agent.name);
+          new Notice(result.message, result.success ? 3000 : 5000);
         } catch (error) {
           new Notice(`${agentId}: Error testing`, 3000);
         }
@@ -200,11 +177,103 @@ export class SettingTab extends PluginSettingTab {
     }
   }
 
-  private get terminal(): any {
-    return {
-      writeln: (text: string) => {
-        // This would write to the terminal view if it exists
-      },
-    };
+  private testAgent(command: string, name: string): Promise<{ success: boolean; message: string }> {
+    return new Promise((resolve) => {
+      const { spawn } = require('child_process');
+
+      // Get user's PATH to find the command
+      const userHome = process.env.HOME || process.env.USERPROFILE;
+      const extendedPath = `/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/opt/local/bin:${userHome}/.local/bin:${userHome}/.bun/bin:${userHome}/.nvm/versions/node/*/bin:/usr/local/go/bin`;
+
+      // Try to run command with --version or --help
+      const proc = spawn(command, ['--version'], {
+        stdio: 'pipe',
+        shell: true,
+        env: {
+          ...process.env,
+          PATH: extendedPath,
+          HOME: userHome,
+        },
+      });
+
+      let output = '';
+      let resolved = false;
+
+      const cleanup = () => {
+        if (!resolved) {
+          resolved = true;
+          try {
+            proc.kill();
+          } catch (e) {
+            // Ignore kill errors
+          }
+        }
+      };
+
+      // Timeout after 5 seconds
+      const timeout = setTimeout(() => {
+        cleanup();
+        resolve({ success: false, message: `${name}: ✗ Timeout` });
+      }, 5000);
+
+      proc.stdout?.on('data', (data: Buffer) => {
+        output += data.toString();
+      });
+
+      proc.stderr?.on('data', (data: Buffer) => {
+        output += data.toString();
+      });
+
+      proc.on('close', (code: number) => {
+        clearTimeout(timeout);
+        cleanup();
+        if (code === 0) {
+          resolve({ success: true, message: `${name}: ✓ Connected` });
+        } else if (code !== null) {
+          // Try with --help if --version fails
+          const helpProc = spawn(command, ['--help'], {
+            stdio: 'pipe',
+            shell: true,
+            env: {
+              ...process.env,
+              PATH: extendedPath,
+              HOME: userHome,
+            },
+          });
+
+          let helpOutput = '';
+          const helpTimeout = setTimeout(() => {
+            try { helpProc.kill(); } catch (e) {}
+            resolve({ success: false, message: `${name}: ✗ Not accessible (exit ${code})` });
+          }, 3000);
+
+          helpProc.stdout?.on('data', (data: Buffer) => {
+            helpOutput += data.toString();
+          });
+
+          helpProc.on('close', (helpCode: number) => {
+            clearTimeout(helpTimeout);
+            if (helpCode === 0 || helpOutput.includes('usage') || helpOutput.includes('help')) {
+              resolve({ success: true, message: `${name}: ✓ Connected` });
+            } else {
+              resolve({ success: false, message: `${name}: ✗ Not accessible (exit ${helpCode})` });
+            }
+          });
+
+          helpProc.on('error', () => {
+            clearTimeout(helpTimeout);
+            resolve({ success: false, message: `${name}: ✗ Not accessible (exit ${code})` });
+          });
+        } else {
+          resolve({ success: false, message: `${name}: ✗ Not found` });
+        }
+      });
+
+      proc.on('error', () => {
+        clearTimeout(timeout);
+        cleanup();
+        resolve({ success: false, message: `${name}: ✗ Not found` });
+      });
+    });
   }
 }
