@@ -1,6 +1,6 @@
 import { App, PluginSettingTab, Setting, Notice } from 'obsidian';
 import AgentCLIPlugin from './main';
-import { AgentCLIPluginSettings, AgentType, AGENT_INFO, DEFAULT_SETTINGS } from './settings';
+import { AgentType, AGENT_INFO } from './settings';
 
 export class SettingTab extends PluginSettingTab {
   plugin: AgentCLIPlugin;

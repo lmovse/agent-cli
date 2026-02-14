@@ -3,12 +3,12 @@
   "name": "Agent CLI",
   "version": "1.0.0",
   "description": "Integrate AI agents (Claude, Gemini, Codex) terminal into Obsidian sidebar",
-  "author": "Your Name",
-  "authorUrl": "https://github.com/yourusername",
+  "author": "Halo",
+  "authorUrl": "https://github.com/lmovse",
   "isDesktopOnly": true,
   "minAppVersion": "0.15.0",
   "fundingUrl": {
-    "GitHub": "yourusername",
-    "Patreon": "yourusername"
+    "GitHub": "lmovse",
+    "Patreon": "lmovse"
   }
 }
