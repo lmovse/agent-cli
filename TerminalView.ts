@@ -121,7 +121,17 @@ export class TerminalView extends ItemView {
 
     // Write welcome message
     this.terminal.writeln('\x1b[1;34m🤖 Agent CLI Terminal\x1b[0m');
-    this.terminal.writeln('');
+
+    // Show loading indicator
+    const loadingChars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+    let loadingIndex = 0;
+    const loadingInterval = setInterval(() => {
+      this.terminal.write(`\r\x1b[2K\x1b[90m${loadingChars[loadingIndex]} Connecting to ${this.currentAgent}...\x1b[0m`);
+      loadingIndex = (loadingIndex + 1) % loadingChars.length;
+    }, 80);
+
+    // Store loading interval for cleanup
+    (this as any).loadingInterval = loadingInterval;
 
     // Auto-focus the terminal
     this.terminal.focus();
@@ -241,6 +251,15 @@ export class TerminalView extends ItemView {
 
       // Process output to terminal (filter warnings from stdout too)
       this.agentProcess.stdout?.on('data', (data: Buffer) => {
+        // Stop loading indicator on first output
+        const loadingInterval = (this as any).loadingInterval;
+        if (loadingInterval) {
+          clearInterval(loadingInterval);
+          (this as any).loadingInterval = null;
+          // Clear the loading line
+          this.terminal.write('\r\x1b[2K');
+        }
+
         if (filterZshWarning(data)) return;
         this.terminal.write(data.toString());
         setTimeout(() => {
@@ -257,6 +276,12 @@ export class TerminalView extends ItemView {
       });
 
       this.agentProcess.on('error', (error: Error) => {
+        // Stop loading indicator
+        const loadingInterval = (this as any).loadingInterval;
+        if (loadingInterval) {
+          clearInterval(loadingInterval);
+          (this as any).loadingInterval = null;
+        }
         this.terminal.writeln(`\x1b[31m❌ Failed to start ${agentConfig.name}: ${error.message}\x1b[0m`);
       });
 
