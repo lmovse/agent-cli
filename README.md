@@ -76,7 +76,7 @@ graph TB
 ### Option 2: BRAT Installation
 
 1. Install the [BRAT](https://obsidian.md/plugins?search=brat) plugin
-2. Use BRAT to add this repository: `https://github.com/lmovse/obsidian-agent-cli`
+2. Use BRAT to add this repository: `https://github.com/lmovse/agent-cli`
 3. Enable the plugin in Obsidian
 
 ## Usage
