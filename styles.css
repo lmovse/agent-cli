@@ -166,36 +166,6 @@
   background-color: rgba(38, 79, 120, 0.5) !important;
 }
 
-/* Let xterm.js handle scrolling natively - do NOT override these styles */
-/*
-.terminal-wrapper .xterm-viewport {
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  height: auto !important;
-  max-height: none !important;
-  position: relative !important;
-}
-
-.terminal-wrapper .xterm-scroll-area {
-  min-height: 0 !important;
-  max-height: none !important;
-  height: auto !important;
-}
-*/
-
-/* Hide xterm.js char measure element but keep it functional */
-/* .terminal-wrapper .xterm-char-measure-element {
-  visibility: hidden !important;
-  position: absolute !important;
-  pointer-events: none !important;
-}
-
-.terminal-wrapper .xterm-helper-textarea {
-  visibility: hidden !important;
-  position: absolute !important;
-  pointer-events: none !important;
-} */
-
 /* Settings panel styles */
 .agent-setting-header {
   margin-bottom: 10px;

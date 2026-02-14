@@ -142,9 +142,9 @@ export class TerminalView extends ItemView {
     const callback = () => {
       // File tracking handled in initializeContext
     };
-    const eventRef = this.app.workspace.on('active-leaf-change', callback);
+    this.app.workspace.on('active-leaf-change', callback);
     this.cleanupCallbacks.push(() => {
-      this.app.workspace.off(eventRef, callback);
+      this.app.workspace.off('active-leaf-change', callback);
     });
   }
 
