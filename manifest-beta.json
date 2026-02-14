@@ -1,0 +1,14 @@
+{
+  "id": "agent-cli-beta",
+  "name": "Agent CLI",
+  "version": "rolling",
+  "description": "Integrate AI agents (Claude, Gemini, Codex) terminal into Obsidian sidebar",
+  "author": "Halo",
+  "authorUrl": "https://github.com/lmovse",
+  "isDesktopOnly": true,
+  "minAppVersion": "0.15.0",
+  "fundingUrl": {
+    "GitHub": "lmovse",
+    "Patreon": "lmovse"
+  }
+}
