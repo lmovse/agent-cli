@@ -40,8 +40,10 @@ jobs:
             CHANGELOG=$(git log --pretty=format:"* %s (%h)" --no-merges -n 20)
           fi
 
-          # Output to GITHUB_OUTPUT
-          echo "changelog=$CHANGELOG" >> $GITHUB_OUTPUT
+          # Output to GITHUB_OUTPUT (use heredoc for multi-line support)
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Get version from tag
         id: version
