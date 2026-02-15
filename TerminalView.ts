@@ -253,7 +253,6 @@ export class TerminalView extends ItemView {
       };
 
       // Detect shell prompt based on current agent command
-      const agentCommand = this.settings.agents[this.currentAgent]?.command || this.currentAgent;
       let promptDetected = false;
       const checkForPrompt = (text: string): boolean => {
         if (promptDetected) return true;
