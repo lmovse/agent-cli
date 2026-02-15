@@ -252,15 +252,16 @@ export class TerminalView extends ItemView {
         return false;
       };
 
-      // Detect shell prompt - look for the specific ANSI-colored "claude" pattern
-      // This matches things like: [32mc[32ml[32ma[32mu[32md[39m
+      // Detect shell prompt based on current agent command
+      const agentCommand = this.settings.agents[this.currentAgent]?.command || this.currentAgent;
       let promptDetected = false;
       const checkForPrompt = (text: string): boolean => {
         if (promptDetected) return true;
 
-        // Match ANSI color codes followed by text characters
-        // Pattern: ANSI codes + "claude" + ANSI reset
-        const promptPattern = /\x1b\[[0-9;]*m*c\x1b\[[0-9;]*m*l\x1b\[[0-9;]*m*a\x1b\[[0-9;]*m*u\x1b\[[0-9;]*m*d\x1b\[[0-9;]*m*e/i;
+        // Build dynamic pattern for the agent command
+        const escapedCmd = agentCommand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const cmdChars = escapedCmd.split('').map(c => `\\x1b\\[[0-9;]*m*${c}`).join('');
+        const promptPattern = new RegExp(cmdChars, 'i');
 
         if (promptPattern.test(text)) {
           promptDetected = true;
