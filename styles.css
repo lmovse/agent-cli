@@ -15,6 +15,10 @@
     z-index: 5;
 }
 
+.xterm .composition-view {
+  visibility: hidden;
+}
+
 .xterm .xterm-helper-textarea {
     padding: 0;
     border: 0;
