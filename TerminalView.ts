@@ -74,27 +74,29 @@ export class TerminalView extends ItemView {
     return this.settings.agents[agentId]?.name || agentId;
   }
 
+  private getCurrentTheme(): { background: string; foreground: string; cursor: string } {
+    const isDarkTheme = document.body.classList.contains('theme-dark');
+    return isDarkTheme
+      ? {
+        background: '#1e1e1e',
+        foreground: '#d4d4d4',
+        cursor: '#d4d4d4',
+      }
+      : {
+        background: '#ffffff',
+        foreground: '#333333',
+        cursor: '#333333',
+      };
+  }
+
   private createTerminal(): void {
     const terminalContainer = this.containerEl.createDiv({ cls: 'terminal-wrapper' });
-
-    // Auto-detect Obsidian theme
-    const isDarkTheme = document.body.classList.contains('theme-dark');
 
     // Use default rows, fit addon will adjust automatically
     this.terminal = new Terminal({
       fontSize: this.settings.terminalFontSize,
       fontFamily: this.settings.terminalFontFamily,
-      theme: isDarkTheme
-        ? {
-          background: '#1e1e1e',
-          foreground: '#d4d4d4',
-          cursor: '#d4d4d4',
-        }
-        : {
-          background: '#ffffff',
-          foreground: '#333333',
-          cursor: '#333333',
-        },
+      theme: this.getCurrentTheme(),
       cursorBlink: true,
       convertEol: true,
       rows: 24,
@@ -124,6 +126,20 @@ export class TerminalView extends ItemView {
     this.resizeObserver.observe(terminalContainer);
     this.cleanupCallbacks.push(() => {
       this.resizeObserver?.disconnect();
+    });
+
+    // Listen for theme changes
+    const themeObserver = new MutationObserver(() => {
+      if (this.terminal) {
+        this.terminal.options.theme = this.getCurrentTheme();
+      }
+    });
+    themeObserver.observe(document.body, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+    this.cleanupCallbacks.push(() => {
+      themeObserver.disconnect();
     });
 
     // Show loading indicator
