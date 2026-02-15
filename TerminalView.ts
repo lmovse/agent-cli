@@ -86,15 +86,15 @@ export class TerminalView extends ItemView {
       fontFamily: this.settings.terminalFontFamily,
       theme: isDarkTheme
         ? {
-            background: '#1e1e1e',
-            foreground: '#d4d4d4',
-            cursor: '#d4d4d4',
-          }
+          background: '#1e1e1e',
+          foreground: '#d4d4d4',
+          cursor: '#d4d4d4',
+        }
         : {
-            background: '#ffffff',
-            foreground: '#333333',
-            cursor: '#333333',
-          },
+          background: '#ffffff',
+          foreground: '#333333',
+          cursor: '#333333',
+        },
       cursorBlink: true,
       convertEol: true,
       rows: 24,
@@ -125,9 +125,6 @@ export class TerminalView extends ItemView {
     this.cleanupCallbacks.push(() => {
       this.resizeObserver?.disconnect();
     });
-
-    // Write welcome message
-    this.terminal.writeln('\x1b[1;34m🤖 Agent CLI Terminal\x1b[0m');
 
     // Show loading indicator
     const loadingChars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
@@ -255,9 +252,39 @@ export class TerminalView extends ItemView {
         return false;
       };
 
+      // Detect shell prompt - look for the specific ANSI-colored "claude" pattern
+      // This matches things like: [32mc[32ml[32ma[32mu[32md[39m
+      let promptDetected = false;
+      const checkForPrompt = (text: string): boolean => {
+        if (promptDetected) return true;
+
+        // Match ANSI color codes followed by text characters
+        // Pattern: ANSI codes + "claude" + ANSI reset
+        const promptPattern = /\x1b\[[0-9;]*m*c\x1b\[[0-9;]*m*l\x1b\[[0-9;]*m*a\x1b\[[0-9;]*m*u\x1b\[[0-9;]*m*d\x1b\[[0-9;]*m*e/i;
+
+        if (promptPattern.test(text)) {
+          promptDetected = true;
+          return false;
+        }
+        return false;
+      };
+
       // Process output to terminal (filter warnings from stdout too)
       this.agentProcess.stdout?.on('data', (data: Buffer) => {
-        // Stop loading indicator on first output
+        if (filterZshWarning(data)) return;
+
+        const text = data.toString();
+
+        // Skip output until we detect the shell prompt
+        if (!promptDetected) {
+          if (checkForPrompt(text)) {
+            // Found prompt - show this output
+            this.terminal.write(text);
+          }
+          // Otherwise, skip this output
+          return;
+        }
+
         const loadingInterval = (this as any).loadingInterval;
         if (loadingInterval) {
           clearInterval(loadingInterval);
@@ -266,8 +293,7 @@ export class TerminalView extends ItemView {
           this.terminal.write('\r\x1b[2K');
         }
 
-        if (filterZshWarning(data)) return;
-        this.terminal.write(data.toString());
+        this.terminal.write(text);
         setTimeout(() => {
           this.terminal.scrollToBottom();
         }, 10);
