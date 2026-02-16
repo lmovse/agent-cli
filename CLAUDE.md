@@ -15,7 +15,7 @@ This is an Obsidian plugin that embeds AI agent terminals (Claude CLI, Gemini CL
 
 The plugin follows a typical Obsidian plugin structure:
 
-```
+```text
 Obsidian App
 ├── AgentCLIPlugin (main.ts)
 │   ├── Registers TerminalView as sidebar item
