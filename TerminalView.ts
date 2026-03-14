@@ -119,6 +119,11 @@ export class TerminalView extends ItemView {
       this.sendToProcess(data);
     });
 
+    // Sync PTY size when xterm.js resizes
+    this.terminal.onResize(({ cols, rows }) => {
+      this.sendResizeToProcess(cols, rows);
+    });
+
     // Resize observer to adjust terminal size using fit addon
     this.resizeObserver = new ResizeObserver(() => {
       this.fitAddon.fit();
@@ -155,6 +160,12 @@ export class TerminalView extends ItemView {
 
     // Auto-focus the terminal
     this.terminal.focus();
+  }
+
+  private sendResizeToProcess(cols: number, rows: number): void {
+    if (this.agentProcess && this.agentProcess.stdin) {
+      this.agentProcess.stdin.write(`\x00RESIZE:${cols}:${rows}\n`);
+    }
   }
 
   private trackActiveFile(): void {
@@ -219,6 +230,9 @@ export class TerminalView extends ItemView {
         'import selectors',
         'import sys',
         'import time',
+        'import struct',
+        'import fcntl',
+        'import termios',
         'os.chdir("' + escapedCwd + '")',
         'pid, pty_fd = pty.fork()',
         'if pid == 0:',
@@ -230,6 +244,7 @@ export class TerminalView extends ItemView {
         '    sel = selectors.DefaultSelector()',
         '    sel.register(pty_fd, selectors.EVENT_READ)',
         '    sel.register(sys.stdin.fileno(), selectors.EVENT_READ)',
+        '    buf = b""',
         '    while True:',
         '        for key, _ in sel.select():',
         '            if key.fileobj == pty_fd:',
@@ -245,7 +260,17 @@ export class TerminalView extends ItemView {
         '                data = os.read(sys.stdin.fileno(), 1024)',
         '                if not data:',
         '                    break',
-        '                os.write(pty_fd, data)',
+        '                buf += data',
+        '                while b"\\x00RESIZE:" in buf:',
+        '                    idx = buf.index(b"\\x00RESIZE:")',
+        '                    end = buf.index(b"\\n", idx)',
+        '                    cmd = buf[idx+8:end].decode()',
+        '                    cols, rows = map(int, cmd.split(":"))',
+        '                    fcntl.ioctl(pty_fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))',
+        '                    buf = buf[:idx] + buf[end+1:]',
+        '                if buf:',
+        '                    os.write(pty_fd, buf)',
+        '                    buf = b""',
       ].join('\n');
 
       const shellArgs = ['-c', pythonScript];
