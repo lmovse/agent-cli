@@ -86,6 +86,6 @@ jobs:
             main.js
             manifest.json
             styles.css
-            pty.py
+            pty_bridge.py
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
