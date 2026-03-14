@@ -5,7 +5,7 @@ export interface AgentConfig {
   enabled: boolean;
 }
 
-export type AgentType = 'claude' | 'gemini' | 'codex';
+export type AgentType = 'claude' | 'gemini' | 'codex' | 'opencode';
 
 export interface AgentCLIPluginSettings {
   defaultAgent: AgentType;
@@ -13,6 +13,7 @@ export interface AgentCLIPluginSettings {
     claude: AgentConfig;
     gemini: AgentConfig;
     codex: AgentConfig;
+    opencode: AgentConfig;
   };
   terminalFontSize: number;
   terminalFontFamily: string;
@@ -41,6 +42,12 @@ export const DEFAULT_SETTINGS: AgentCLIPluginSettings = {
       command: 'codex',
       enabled: true,
     },
+    opencode: {
+      id: 'opencode',
+      name: 'OpenCode CLI',
+      command: 'opencode',
+      enabled: true,
+    },
   },
   terminalFontSize: 13,
   terminalFontFamily: '"JetBrains Mono Regular", "Fira Code", "Cascadia Code", "Source Code Pro", Menlo, Monaco, monospace',
@@ -60,5 +67,9 @@ export const AGENT_INFO: Record<AgentType, { description: string; color: string 
   codex: {
     description: 'OpenAI\'s Codex model',
     color: '#5ac54f',
+  },
+  opencode: {
+    description: 'OpenCode AI assistant',
+    color: '#9b59b6',
   },
 };

@@ -14,7 +14,8 @@
     "agent",
     "claude",
     "gemini",
-    "codex"
+    "codex",
+    "opencode"
   ],
   "author": "Halo",
   "license": "MIT",

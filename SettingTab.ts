@@ -49,6 +49,9 @@ export class SettingTab extends PluginSettingTab {
     // Codex settings
     this.createAgentSettings(containerEl, 'codex');
 
+    // OpenCode settings
+    this.createAgentSettings(containerEl, 'opencode');
+
     // Separator
     containerEl.createEl('hr');
 

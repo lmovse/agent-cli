@@ -18,6 +18,12 @@
       "name": "Codex CLI",
       "command": "codex",
       "enabled": false
+    },
+    "opencode": {
+      "id": "opencode",
+      "name": "OpenCode CLI",
+      "command": "opencode",
+      "enabled": true
     }
   },
   "terminalFontSize": 13,
