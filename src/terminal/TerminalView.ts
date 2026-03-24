@@ -2,9 +2,9 @@ import { ItemView, WorkspaceLeaf, Notice } from 'obsidian';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import * as cp from 'child_process';
-import AgentCLIPlugin from './main';
-import { AgentCLIPluginSettings, AgentType, DEFAULT_SETTINGS } from './settings';
-import myScript from './scripts/pty_bridge.py?raw';
+import AgentCLIPlugin from '../main';
+import { AgentCLIPluginSettings, AgentType, DEFAULT_SETTINGS } from '../settings/settings';
+import myScript from '../../scripts/pty_bridge.py?raw';
 
 export const AGENT_TERMINAL_VIEW = 'agent-terminal-view';
 

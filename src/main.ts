@@ -1,7 +1,7 @@
 import { Plugin, MarkdownView, WorkspaceLeaf } from 'obsidian';
-import { AgentCLIPluginSettings, DEFAULT_SETTINGS } from './settings';
-import { TerminalView, AGENT_TERMINAL_VIEW } from './TerminalView';
-import { SettingTab } from './SettingTab';
+import { AgentCLIPluginSettings, DEFAULT_SETTINGS } from './settings/settings';
+import { TerminalView, AGENT_TERMINAL_VIEW } from './terminal/TerminalView';
+import { SettingTab } from './settings/SettingTab';
 
 export default class AgentCLIPlugin extends Plugin {
   settings: AgentCLIPluginSettings;

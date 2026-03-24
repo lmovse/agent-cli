@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is an Obsidian plugin that embeds AI agent terminals (Claude CLI, Gemini CLI, Codex CLI) directly into the Obsidian sidebar. It uses xterm.js for terminal rendering and a Python PTY bridge to spawn shell processes.
+This is an Obsidian plugin that embeds AI agent terminals (Claude CLI, Gemini CLI, Codex CLI, OpenCode CLI) directly into the Obsidian sidebar. It uses xterm.js for terminal rendering and a Python PTY bridge to spawn shell processes.
 
 ## Build Commands
 
@@ -17,26 +17,30 @@ The plugin follows a typical Obsidian plugin structure:
 
 ```text
 Obsidian App
-├── AgentCLIPlugin (main.ts)
-│   ├── Registers TerminalView as sidebar item
-│   ├── Adds ribbon icon and commands
-│   └── Manages settings persistence
-├── TerminalView (TerminalView.ts)
-│   ├── Creates xterm.js terminal
-│   ├── Spawns Python PTY process with agent command
-│   ├── Handles terminal I/O streams
-│   └── Auto-detects Obsidian dark/light theme
-├── SettingTab (SettingTab.ts)
-│   └── Provides Obsidian settings UI
-└── settings.ts
-    └── Defines settings interface and defaults
+├── src/
+│   ├── AgentCLIPlugin (main.ts)
+│   │   ├── Registers TerminalView as sidebar item
+│   │   ├── Adds ribbon icon and commands
+│   │   └── Manages settings persistence
+│   ├── TerminalView (TerminalView.ts)
+│   │   ├── Creates xterm.js terminal
+│   │   ├── Spawns Python PTY process with agent command
+│   │   ├── Handles terminal I/O streams
+│   │   └── Auto-detects Obsidian dark/light theme
+│   ├── SettingTab (SettingTab.ts)
+│   │   └── Provides Obsidian settings UI
+│   └── settings.ts
+│       └── Defines settings interface and defaults
+└── scripts/
+    └── pty_bridge.py
+        └── Embedded Python PTY bridge script
 ```
 
 ## Key Implementation Details
 
 ### PTY Bridge
 
-The terminal connects to the AI agent via a Python PTY. The Python script is embedded inline in `TerminalView.ts:209-242` (the `startAgent` method). It:
+The terminal connects to the AI agent via a Python PTY. The Python script (`scripts/pty_bridge.py`) is imported as a raw string via esbuild's `?raw` loader and executed via `python3 -c`. It:
 
 1. Uses `pty.fork()` to create a pseudo-terminal
 2. Spawns `/bin/zsh` in the PTY
@@ -56,6 +60,7 @@ The terminal detects Obsidian's theme by checking `document.body.classList.conta
 - Claude CLI (`claude`)
 - Gemini CLI (`gemini`)
 - Codex CLI (`codex`)
+- OpenCode CLI (`opencode`)
 
 Each agent has configurable command, display name, and enabled state in settings.
 
