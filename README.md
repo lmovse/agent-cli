@@ -14,6 +14,14 @@ An Obsidian plugin that integrates AI agent terminals (Claude, Gemini, Codex, Op
 - **Current File Context** - Automatically send current file path to agent
 - **Customizable Terminal** - Adjust font size and family to your preference
 
+## Screenshots
+
+![Agent Terminal](docs/command-panel.png)
+
+![Settings](docs/settings-page.png)
+
+![Use Case](docs/use-case.png)
+
 ## Implementation Principle
 
 This plugin works by leveraging the following technologies:
