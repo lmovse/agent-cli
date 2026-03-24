@@ -4,12 +4,12 @@
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-1.0.0-blue?style=flat)](manifest.json)
 
-An Obsidian plugin that integrates AI agent terminals (Claude, Gemini, Codex) directly into your Obsidian sidebar.
+An Obsidian plugin that integrates AI agent terminals (Claude, Gemini, Codex, OpenCode) directly into your Obsidian sidebar.
 
 ## Features
 
 - **Embedded Terminal** - Run AI agent CLI directly in Obsidian's sidebar
-- **Multi-Agent Support** - Support for Claude CLI, Gemini CLI, and Codex CLI
+- **Multi-Agent Support** - Support for Claude CLI, Gemini CLI, Codex CLI, and OpenCode CLI
 - **Theme Auto-Detection** - Automatically matches Obsidian's dark/light theme
 - **Current File Context** - Automatically send current file path to agent
 - **Customizable Terminal** - Adjust font size and family to your preference
@@ -34,7 +34,7 @@ graph TB
         end
     end
 
-    AgentCLI["AI Agent CLI<br/>Claude/Gemini/Codex"]
+    AgentCLI["AI Agent CLI<br/>Claude/Gemini/Codex/OpenCode"]
 
     User["User Input"] --> Terminal
     Terminal -->|write stdin| PTY
@@ -110,6 +110,7 @@ Configure the plugin in **Settings → Agent CLI**:
 - **Claude CLI** - Anthropic's AI assistant
 - **Gemini CLI** - Google's AI model
 - **Codex CLI** - OpenAI's Codex model
+- **OpenCode CLI** - OpenCode AI assistant
 
 ## Requirements
 

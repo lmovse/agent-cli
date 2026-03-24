@@ -188,7 +188,7 @@ export class TerminalView extends ItemView {
 
     // Send vault-relative path to terminal (no notification)
     if (this.agentProcess && this.agentProcess.stdin) {
-      this.agentProcess.stdin.write(`@${activeFile.path}\r`);
+      this.agentProcess.stdin.write(`@${activeFile.path} `);
     }
   }
 
