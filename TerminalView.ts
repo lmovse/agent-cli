@@ -2,9 +2,9 @@ import { ItemView, WorkspaceLeaf, Notice } from 'obsidian';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import * as cp from 'child_process';
-import * as path from 'path';
 import AgentCLIPlugin from './main';
 import { AgentCLIPluginSettings, AgentType, DEFAULT_SETTINGS } from './settings';
+import myScript from './scripts/pty_bridge.py?raw';
 
 export const AGENT_TERMINAL_VIEW = 'agent-terminal-view';
 
@@ -224,11 +224,8 @@ export class TerminalView extends ItemView {
       // Use vault root as working directory
       const vaultCwd = vaultBasePath;
 
-      // Resolve pty_bridge.py path relative to this plugin's directory
-      const pluginDir = path.join(vaultBasePath, (this.app as any).vault.configDir, 'plugins', this.plugin.manifest.id);
-      const ptyBridgePath = path.join(pluginDir, 'pty_bridge.py');
-
-      this.agentProcess = cp.spawn('/usr/bin/python3', [ptyBridgePath, vaultCwd, agentCommand], {
+      // Pass Python script source code directly to Python interpreter
+      this.agentProcess = cp.spawn('/usr/bin/python3', ['-c', myScript, vaultCwd, agentCommand], {
         env: {
           ...process.env,
           PATH: `/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/opt/local/bin:${userHome}/.local/bin`,
