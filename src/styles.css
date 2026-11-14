@@ -172,11 +172,34 @@
 
 /* Settings panel styles */
 .agent-setting-header {
-  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  margin: 15px 0 10px;
+}
+
+.agent-setting-header .agent-setting-icon {
+  display: block;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  margin: 0;
+  padding: 0;
+  color: var(--text-normal);
+}
+
+.agent-setting-header .agent-setting-icon-claude {
+  color: #d97757;
+}
+
+.agent-setting-header .agent-setting-icon-gemini {
+  color: #8e75b2;
 }
 
 .agent-setting-header h4 {
   margin: 0;
+  padding: 0;
   color: var(--text-normal);
 }
 

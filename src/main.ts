@@ -1,5 +1,5 @@
 import { Plugin, MarkdownView, WorkspaceLeaf } from 'obsidian';
-import { AgentCLIPluginSettings, DEFAULT_SETTINGS } from './settings/settings';
+import { AgentCLIPluginSettings, mergeSettings } from './settings/settings';
 import { TerminalView, AGENT_TERMINAL_VIEW } from './terminal/TerminalView';
 import { SettingTab } from './settings/SettingTab';
 
@@ -15,6 +15,8 @@ export default class AgentCLIPlugin extends Plugin {
       AGENT_TERMINAL_VIEW,
       (leaf) => new TerminalView(leaf, this)
     );
+
+    this.registerEvent(this.app.workspace.on('quit', () => this.stopAgents()));
 
     // Add sidebar button with robot icon (appears in right sidebar after Outline)
     this.addRibbonIcon('bot', 'Agent Terminal', () => {
@@ -85,19 +87,26 @@ export default class AgentCLIPlugin extends Plugin {
   }
 
   onunload() {
+    this.stopAgents();
     this.app.workspace.detachLeavesOfType(AGENT_TERMINAL_VIEW);
   }
 
+  private stopAgents(): void {
+    for (const leaf of this.app.workspace.getLeavesOfType(AGENT_TERMINAL_VIEW)) {
+      (leaf.view as TerminalView).stopAgent();
+    }
+  }
+
   async loadSettings() {
-    this.settings = Object.assign(
-      {},
-      DEFAULT_SETTINGS,
-      await this.loadData()
-    );
+    this.settings = mergeSettings(await this.loadData());
   }
 
   async saveSettings() {
+    this.settings = mergeSettings(this.settings);
     await this.saveData(this.settings);
+    for (const leaf of this.app.workspace.getLeavesOfType(AGENT_TERMINAL_VIEW)) {
+      (leaf.view as TerminalView).updateSettings();
+    }
   }
 
   async activateView() {
@@ -142,20 +151,10 @@ export default class AgentCLIPlugin extends Plugin {
   }
 
   async sendToTerminal(text: string) {
+    await this.activateView();
     const leaves = this.app.workspace.getLeavesOfType(AGENT_TERMINAL_VIEW);
     if (leaves.length > 0) {
-      const view = leaves[0].view as TerminalView;
-      view.sendToAgent(text);
-    } else {
-      await this.activateView();
-      // Small delay to ensure terminal is ready
-      setTimeout(() => {
-        const leaves = this.app.workspace.getLeavesOfType(AGENT_TERMINAL_VIEW);
-        if (leaves.length > 0) {
-          const view = leaves[0].view as TerminalView;
-          view.sendToAgent(text);
-        }
-      }, 500);
+      await (leaves[0].view as TerminalView).sendToAgent(text);
     }
   }
 

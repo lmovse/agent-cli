@@ -1,10 +1,11 @@
 import { ItemView, WorkspaceLeaf, Notice } from 'obsidian';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import * as cp from 'child_process';
+import type * as cp from 'child_process';
+import { StringDecoder } from 'string_decoder';
 import AgentCLIPlugin from '../main';
-import { AgentCLIPluginSettings, AgentType, DEFAULT_SETTINGS } from '../settings/settings';
-import myScript from '../../scripts/pty_bridge.py?raw';
+import { AgentCLIPluginSettings, AgentType, getEnabledAgents } from '../settings/settings';
+import { spawnAgentProcess, stopAgentProcess } from './process';
 
 export const AGENT_TERMINAL_VIEW = 'agent-terminal-view';
 
@@ -12,6 +13,10 @@ export class TerminalView extends ItemView {
   private terminal: Terminal;
   private fitAddon: FitAddon;
   private agentProcess: cp.ChildProcess | null = null;
+  private outputProcess: cp.ChildProcess | null = null;
+  private acceptingInput = false;
+  private closed = false;
+  private agentStartup: Promise<void> = Promise.resolve();
   private currentAgent: AgentType;
   private settings: AgentCLIPluginSettings;
   private cleanupCallbacks: (() => void)[] = [];
@@ -20,13 +25,13 @@ export class TerminalView extends ItemView {
   constructor(leaf: WorkspaceLeaf, private plugin: AgentCLIPlugin) {
     super(leaf);
     // Load initial settings from plugin
-    this.settings = { ...DEFAULT_SETTINGS, ...plugin.settings };
+    this.settings = plugin.settings;
     this.currentAgent = this.settings.defaultAgent;
   }
 
   // Method to refresh settings from plugin
   refreshSettings(): void {
-    this.settings = { ...DEFAULT_SETTINGS, ...this.plugin.settings };
+    this.settings = this.plugin.settings;
   }
 
   getViewType(): string {
@@ -46,6 +51,7 @@ export class TerminalView extends ItemView {
   }
 
   async onOpen(): Promise<void> {
+    this.closed = false;
     this.containerEl.empty();
     this.containerEl.classList.add('agent-terminal-container');
 
@@ -55,15 +61,10 @@ export class TerminalView extends ItemView {
   }
 
   async onClose(): Promise<void> {
-    // Clean up loading interval
-    const loadingInterval = (this as any).loadingInterval;
-    if (loadingInterval) {
-      clearInterval(loadingInterval);
-      (this as any).loadingInterval = null;
-    }
-
-    this.cleanupCallbacks.forEach(cb => cb());
+    this.closed = true;
     this.stopAgent();
+    this.cleanupCallbacks.forEach(cb => cb());
+    this.cleanupCallbacks = [];
     this.terminal.dispose();
   }
 
@@ -180,6 +181,8 @@ export class TerminalView extends ItemView {
   }
 
   async sendCurrentFile(): Promise<void> {
+    await this.agentStartup;
+    if (this.closed) return;
     const activeFile = this.app.workspace.getActiveFile();
     if (!activeFile) {
       new Notice('No file is currently open', 3000);
@@ -187,18 +190,19 @@ export class TerminalView extends ItemView {
     }
 
     // Send vault-relative path to terminal (no notification)
-    if (this.agentProcess && this.agentProcess.stdin) {
+    if (this.acceptingInput && this.agentProcess?.stdin) {
       this.agentProcess.stdin.write(`@${activeFile.path} `);
     }
   }
 
-  sendToAgent(text: string): void {
-    if (!this.agentProcess) {
+  async sendToAgent(text: string): Promise<void> {
+    await this.agentStartup;
+    if (this.closed) return;
+    if (!this.acceptingInput || !this.agentProcess) {
       this.terminal.writeln('\x1b[31m⚠️ Agent process not running. Please restart.\x1b[0m');
       return;
     }
 
-    this.terminal.write(text + '\r\n');
     if (this.agentProcess.stdin) {
       this.agentProcess.stdin.write(text + '\r\n');
     }
@@ -210,142 +214,114 @@ export class TerminalView extends ItemView {
     }
   }
 
+  private clearLoadingIndicator(): void {
+    const loadingInterval = (this as any).loadingInterval;
+    if (!loadingInterval) return;
+
+    clearInterval(loadingInterval);
+    (this as any).loadingInterval = null;
+    this.terminal.write('\r\x1b[2K');
+  }
+
   private async startAgent(): Promise<void> {
-    const agentId = this.currentAgent;
-    const agentConfig = this.settings.agents[agentId];
-    const agentCommand = agentConfig.command;
+    if (this.closed) return;
+    this.refreshSettings();
+    const enabledAgents = getEnabledAgents(this.settings);
+    if (!enabledAgents.length) {
+      this.stopAgent();
+      this.terminal.writeln('No agents are enabled. Enable an agent in settings.');
+      return;
+    }
+    if (!enabledAgents.includes(this.currentAgent)) {
+      this.currentAgent = enabledAgents.includes(this.settings.defaultAgent)
+        ? this.settings.defaultAgent : enabledAgents[0];
+    }
+    const agentConfig = this.settings.agents[this.currentAgent];
+    if (!agentConfig.command.trim()) {
+      this.clearLoadingIndicator();
+      this.terminal.writeln('Set an agent command in settings before starting.');
+      return;
+    }
 
     try {
-      const userHome = process.env.HOME || process.env.USERPROFILE;
-
-      // Get vault base path (full filesystem path)
-      const vaultBasePath = (this.app.vault.adapter as any).basePath || this.app.vault.getRoot().path;
-
-      // Use vault root as working directory
-      const vaultCwd = vaultBasePath;
-
-      // Pass Python script source code directly to Python interpreter
-      this.agentProcess = cp.spawn('/usr/bin/python3', ['-c', myScript, vaultCwd, agentCommand], {
-        env: {
-          ...process.env,
-          PATH: `/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/opt/local/bin:${userHome}/.local/bin`,
-          HOME: userHome,
-          TERM: 'xterm-256color',
-        },
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
-
-      // Filter out zsh compsys warnings
-      const filterZshWarning = (data: Buffer): boolean => {
-        const text = data.toString();
-        // Ignore zsh global variable warnings from compsys
-        if (text.includes('RETVAL created globally')) return true;
-        return false;
-      };
-
-      // Detect shell prompt based on current agent command
-      let promptDetected = false;
-      const checkForPrompt = (text: string): boolean => {
-        if (promptDetected) return true;
-
-        // Build dynamic pattern for the agent command
-        const escapedCmd = agentCommand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const cmdChars = escapedCmd.split('').map(c => `\\x1b\\[[0-9;]*m*${c}`).join('');
-        const promptPattern = new RegExp(cmdChars, 'i');
-
-        if (promptPattern.test(text)) {
-          promptDetected = true;
-          return false;
-        }
-        return false;
-      };
-
-      // Process output to terminal (filter warnings from stdout too)
-      this.agentProcess.stdout?.on('data', (data: Buffer) => {
-        if (filterZshWarning(data)) return;
-
-        const text = data.toString();
-
-        // Skip output until we detect the shell prompt
-        if (!promptDetected) {
-          if (checkForPrompt(text)) {
-            // Found prompt - show this output
-            this.terminal.write(text);
-          }
-          // Otherwise, skip this output
-          return;
-        }
-
-        const loadingInterval = (this as any).loadingInterval;
-        if (loadingInterval) {
-          clearInterval(loadingInterval);
-          (this as any).loadingInterval = null;
-          // Clear the loading line
-          this.terminal.write('\r\x1b[2K');
-        }
-
+      const vaultCwd = (this.app.vault.adapter as any).basePath || this.app.vault.getRoot().path;
+      const agentProcess = spawnAgentProcess(
+        agentConfig.command, vaultCwd, this.terminal.cols, this.terminal.rows,
+      );
+      this.agentProcess = agentProcess;
+      this.outputProcess = agentProcess;
+      this.acceptingInput = false;
+      const stdoutDecoder = new StringDecoder('utf8');
+      const stderrDecoder = new StringDecoder('utf8');
+      const writeOutput = (text: string): void => {
+        if (this.outputProcess !== agentProcess || !text) return;
+        this.clearLoadingIndicator();
         this.terminal.write(text);
         setTimeout(() => {
-          this.terminal.scrollToBottom();
+          if (this.outputProcess === agentProcess) this.terminal.scrollToBottom();
         }, 10);
+      };
+      agentProcess.stdout?.on('data', (data: Buffer) => writeOutput(stdoutDecoder.write(data)));
+      agentProcess.stderr?.on('data', (data: Buffer) => writeOutput(stderrDecoder.write(data)));
+      agentProcess.stdin?.on('error', () => {
+        if (this.agentProcess === agentProcess) this.stopAgent();
       });
-
-      this.agentProcess.stderr?.on('data', (data: Buffer) => {
-        if (filterZshWarning(data)) return;
-        this.terminal.write(data.toString());
-        setTimeout(() => {
-          this.terminal.scrollToBottom();
-        }, 10);
-      });
-
-      this.agentProcess.on('error', (error: Error) => {
-        // Stop loading indicator
-        const loadingInterval = (this as any).loadingInterval;
-        if (loadingInterval) {
-          clearInterval(loadingInterval);
-          (this as any).loadingInterval = null;
-        }
-        this.terminal.writeln(`\x1b[31m❌ Failed to start ${agentConfig.name}: ${error.message}\x1b[0m`);
-      });
-
-      this.agentProcess.on('exit', (code: number | null) => {
-        if (code !== 0 && code !== null) {
-          this.terminal.writeln(`\r\n\x1b[33m⚠️ Agent process exited with code ${code}\x1b[0m`);
-        }
+      agentProcess.on('exit', () => {
+        if (this.agentProcess !== agentProcess) return;
         this.agentProcess = null;
+        this.acceptingInput = false;
+        this.clearLoadingIndicator();
+      });
+      agentProcess.on('close', (code: number | null) => {
+        if (this.outputProcess !== agentProcess) return;
+        writeOutput(stdoutDecoder.end());
+        writeOutput(stderrDecoder.end());
+        this.outputProcess = null;
+        if (this.agentProcess === agentProcess) this.agentProcess = null;
+        this.acceptingInput = false;
+        this.clearLoadingIndicator();
+        if (code !== 0 && code !== null) {
+          this.terminal.writeln(`\r\n\x1b[33mAgent process exited with code ${code}\x1b[0m`);
+        }
       });
 
+      this.agentStartup = new Promise<void>((resolve) => {
+        agentProcess.once('spawn', () => {
+          if (this.agentProcess === agentProcess) {
+            this.acceptingInput = true;
+            this.clearLoadingIndicator();
+          }
+          resolve();
+        });
+        agentProcess.on('error', (error: Error) => {
+          if (this.outputProcess === agentProcess) {
+            this.agentProcess = null;
+            this.acceptingInput = false;
+            this.clearLoadingIndicator();
+            this.terminal.writeln(`Failed to start ${agentConfig.name}: ${error.message}`);
+          }
+          resolve();
+        });
+      });
+      await this.agentStartup;
+      if (this.agentProcess !== agentProcess || !this.acceptingInput) return;
+      if (this.settings.welcomeMessage) this.terminal.writeln(this.settings.welcomeMessage);
+      if (this.settings.autoSendCurrentFile && this.app.workspace.getActiveFile()) {
+        await this.sendCurrentFile();
+      }
     } catch (error) {
-      this.terminal.writeln(`\x1b[31m❌ Error: ${(error as Error).message}\x1b[0m`);
+      this.stopAgent();
+      this.terminal.writeln(`Failed to start ${agentConfig.name}: ${(error as Error).message}`);
     }
   }
 
-  private stopAgent(): void {
-    if (this.agentProcess) {
-      // First close all stdio to break the connection
-      try {
-        this.agentProcess.stdin?.end();
-        this.agentProcess.stdout?.destroy();
-        this.agentProcess.stderr?.destroy();
-      } catch (e) {
-        // Ignore
-      }
-
-      // Kill the process group to ensure child processes are killed too
-      try {
-        if (this.agentProcess.pid) {
-          process.kill(-this.agentProcess.pid, 'SIGKILL');
-        }
-      } catch (e) {
-        // If process group doesn't work, try direct kill
-        try {
-          this.agentProcess.kill('SIGKILL');
-        } catch (e2) {
-          // Ignore if already dead
-        }
-      }
-      this.agentProcess = null;
-    }
+  stopAgent(): void {
+    const agentProcess = this.agentProcess || this.outputProcess;
+    this.agentProcess = null;
+    this.outputProcess = null;
+    this.acceptingInput = false;
+    this.clearLoadingIndicator();
+    if (agentProcess) stopAgentProcess(agentProcess);
   }
 
   async restartAgent(): Promise<void> {
@@ -355,9 +331,13 @@ export class TerminalView extends ItemView {
 
   async openAgentSelector(): Promise<void> {
     // Cycle through enabled agents
-    const enabledAgents = Object.keys(this.settings.agents).filter(
-      key => this.settings.agents[key as AgentType].enabled
-    ) as AgentType[];
+    this.refreshSettings();
+    const enabledAgents = getEnabledAgents(this.settings);
+    if (!enabledAgents.length) {
+      this.stopAgent();
+      new Notice('No agents are enabled. Enable an agent in settings.', 3000);
+      return;
+    }
 
     const currentIndex = enabledAgents.indexOf(this.currentAgent);
     const nextIndex = (currentIndex + 1) % enabledAgents.length;
@@ -367,7 +347,7 @@ export class TerminalView extends ItemView {
   }
 
   updateSettings(): void {
-    this.settings = { ...DEFAULT_SETTINGS, ...this.plugin.settings };
+    this.refreshSettings();
     if (this.terminal && this.fitAddon) {
       this.terminal.options.fontSize = this.settings.terminalFontSize;
       this.terminal.options.fontFamily = this.settings.terminalFontFamily;

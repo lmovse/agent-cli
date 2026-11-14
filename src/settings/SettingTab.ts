@@ -1,13 +1,23 @@
 import { App, PluginSettingTab, Setting, Notice } from 'obsidian';
 import AgentCLIPlugin from '../main';
-import { AgentType, AGENT_INFO } from './settings';
+import { AgentType, AGENT_INFO, getEnabledAgents } from './settings';
+import { AGENT_ICON_PATHS } from './agentIcons';
+import type { ChildProcess } from 'child_process';
+import { spawnAgentProcess, stopAgentProcess } from '../terminal/process';
 
 export class SettingTab extends PluginSettingTab {
   plugin: AgentCLIPlugin;
+  private pendingTests = new Set<() => void>();
+  private disposed = false;
+  private testing = false;
 
   constructor(app: App, plugin: AgentCLIPlugin) {
     super(app, plugin);
     this.plugin = plugin;
+    plugin.register(() => {
+      this.disposed = true;
+      this.pendingTests.forEach(cancel => cancel());
+    });
   }
 
   display(): void {
@@ -22,11 +32,12 @@ export class SettingTab extends PluginSettingTab {
       .setName('Default Agent')
       .setDesc('Choose which AI agent to use by default')
       .addDropdown((dropdown) => {
-        Object.entries(this.plugin.settings.agents).forEach(([key, agent]) => {
-          if (agent.enabled) {
-            dropdown.addOption(key, `${agent.name} (${AGENT_INFO[key as AgentType].description})`);
-          }
+        const enabled = getEnabledAgents(this.plugin.settings);
+        enabled.forEach(key => {
+          const agent = this.plugin.settings.agents[key];
+          dropdown.addOption(key, `${agent.name} (${AGENT_INFO[key].description})`);
         });
+        dropdown.setDisabled(!enabled.length);
         dropdown.setValue(this.plugin.settings.defaultAgent);
         dropdown.onChange(async (value: AgentType) => {
           this.plugin.settings.defaultAgent = value;
@@ -89,7 +100,7 @@ export class SettingTab extends PluginSettingTab {
     // Auto send current file
     new Setting(containerEl)
       .setName('Auto-send Current File')
-      .setDesc('Automatically send current file content when opening terminal')
+      .setDesc('Automatically insert the current file path when opening terminal')
       .addToggle((toggle) => {
         toggle.setValue(this.plugin.settings.autoSendCurrentFile);
         toggle.onChange(async (value) => {
@@ -115,13 +126,29 @@ export class SettingTab extends PluginSettingTab {
     const agent = this.plugin.settings.agents[agentId];
     const agentInfo = AGENT_INFO[agentId];
 
-    // Section header with color
+    // Section header with the agent's SVG logo.
     const header = containerEl.createEl('div', {
       cls: 'agent-setting-header',
     });
-    header.style.borderLeft = `3px solid ${agentInfo.color}`;
-    header.style.paddingLeft = '10px';
-    header.style.marginTop = '15px';
+    // Use native DOM APIs: createSvg is not available in every Obsidian runtime.
+    const svgNamespace = 'http://www.w3.org/2000/svg';
+    const icon = header.ownerDocument.createElementNS(svgNamespace, 'svg');
+    for (const [name, value] of Object.entries({
+      class: `agent-setting-icon agent-setting-icon-${agentId}`,
+      viewBox: '0 0 24 24',
+      width: '26',
+      height: '26',
+      fill: 'currentColor',
+      'fill-rule': 'evenodd',
+      'aria-hidden': 'true',
+      focusable: 'false',
+    })) {
+      icon.setAttribute(name, value);
+    }
+    const path = header.ownerDocument.createElementNS(svgNamespace, 'path');
+    path.setAttribute('d', AGENT_ICON_PATHS[agentId]);
+    icon.appendChild(path);
+    header.appendChild(icon);
 
     header.createEl('h4', {
       text: `${agentInfo.description}`,
@@ -167,116 +194,67 @@ export class SettingTab extends PluginSettingTab {
   }
 
   private async testAgentConnections(): Promise<void> {
-    for (const [agentId, agent] of Object.entries(this.plugin.settings.agents)) {
-      if (agent.enabled) {
-        try {
-          // Test connection with timeout
-          const result = await this.testAgent(agent.command, agent.name);
-          new Notice(result.message, result.success ? 3000 : 5000);
-        } catch (error) {
-          new Notice(`${agentId}: Error testing`, 3000);
-        }
+    if (this.testing || this.disposed) return;
+    this.testing = true;
+    try {
+      for (const id of getEnabledAgents(this.plugin.settings)) {
+        if (this.disposed) break;
+        const agent = this.plugin.settings.agents[id];
+        const result = await this.testAgent(agent.command, agent.name);
+        if (!this.disposed) new Notice(result.message, result.success ? 3000 : 5000);
       }
+    } finally {
+      this.testing = false;
     }
   }
 
   private testAgent(command: string, name: string): Promise<{ success: boolean; message: string }> {
+    if (this.disposed) return Promise.resolve({ success: false, message: `${name}: Cancelled` });
     return new Promise((resolve) => {
-      const { spawn } = require('child_process');
-
-      // Get user's PATH to find the command
-      const userHome = process.env.HOME || process.env.USERPROFILE;
-      const extendedPath = `/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/opt/local/bin:${userHome}/.local/bin:${userHome}/.bun/bin:${userHome}/.nvm/versions/node/*/bin:/usr/local/go/bin`;
-
-      // Try to run command with --version or --help
-      const proc = spawn(command, ['--version'], {
-        stdio: 'pipe',
-        shell: true,
-        env: {
-          ...process.env,
-          PATH: extendedPath,
-          HOME: userHome,
-        },
-      });
-
-      let output = '';
-      let resolved = false;
-
-      const cleanup = () => {
-        if (!resolved) {
-          resolved = true;
-          try {
-            proc.kill();
-          } catch (e) {
-            // Ignore kill errors
-          }
+      let settled = false;
+      let current: ChildProcess | null = null;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const clearTimer = (): void => {
+        if (timer) clearTimeout(timer);
+        timer = undefined;
+      };
+      const finish = (success: boolean, message: string): void => {
+        if (settled) return;
+        settled = true;
+        clearTimer();
+        this.pendingTests.delete(cancel);
+        if (current) stopAgentProcess(current);
+        resolve({ success, message: `${name}: ${message}` });
+      };
+      const cancel = (): void => finish(false, 'Cancelled');
+      this.pendingTests.add(cancel);
+      const runAttempt = (flag: '--version' | '--help'): void => {
+        try {
+          const cwd = process.env.HOME || process.env.USERPROFILE || process.cwd();
+          const proc = spawnAgentProcess(`${command} ${flag}`, cwd);
+          current = proc;
+          // Drain both streams so a verbose CLI cannot block waiting on a pipe.
+          for (const stream of [proc.stdout, proc.stderr]) stream?.on('data', () => {});
+          proc.stdin?.on('error', () => {
+            if (current === proc) finish(false, '✗ Connection closed');
+          });
+          proc.on('error', () => {
+            if (current === proc) finish(false, '✗ Not accessible');
+          });
+          proc.on('close', (code: number | null) => {
+            if (settled || current !== proc) return;
+            clearTimer();
+            current = null;
+            if (code === 0) finish(true, '✓ Connected');
+            else if (flag === '--version' && code !== null) runAttempt('--help');
+            else finish(false, `✗ Not accessible (exit ${code})`);
+          });
+          timer = setTimeout(() => finish(false, '✗ Timeout'), flag === '--version' ? 5000 : 3000);
+        } catch (error) {
+          finish(false, '✗ Not accessible');
         }
       };
-
-      // Timeout after 5 seconds
-      const timeout = setTimeout(() => {
-        cleanup();
-        resolve({ success: false, message: `${name}: ✗ Timeout` });
-      }, 5000);
-
-      proc.stdout?.on('data', (data: Buffer) => {
-        output += data.toString();
-      });
-
-      proc.stderr?.on('data', (data: Buffer) => {
-        output += data.toString();
-      });
-
-      proc.on('close', (code: number) => {
-        clearTimeout(timeout);
-        cleanup();
-        if (code === 0) {
-          resolve({ success: true, message: `${name}: ✓ Connected` });
-        } else if (code !== null) {
-          // Try with --help if --version fails
-          const helpProc = spawn(command, ['--help'], {
-            stdio: 'pipe',
-            shell: true,
-            env: {
-              ...process.env,
-              PATH: extendedPath,
-              HOME: userHome,
-            },
-          });
-
-          let helpOutput = '';
-          const helpTimeout = setTimeout(() => {
-            try { helpProc.kill(); } catch (e) {}
-            resolve({ success: false, message: `${name}: ✗ Not accessible (exit ${code})` });
-          }, 3000);
-
-          helpProc.stdout?.on('data', (data: Buffer) => {
-            helpOutput += data.toString();
-          });
-
-          helpProc.on('close', (helpCode: number) => {
-            clearTimeout(helpTimeout);
-            if (helpCode === 0 || helpOutput.includes('usage') || helpOutput.includes('help')) {
-              resolve({ success: true, message: `${name}: ✓ Connected` });
-            } else {
-              resolve({ success: false, message: `${name}: ✗ Not accessible (exit ${helpCode})` });
-            }
-          });
-
-          helpProc.on('error', () => {
-            clearTimeout(helpTimeout);
-            resolve({ success: false, message: `${name}: ✗ Not accessible (exit ${code})` });
-          });
-        } else {
-          resolve({ success: false, message: `${name}: ✗ Not found` });
-        }
-      });
-
-      proc.on('error', () => {
-        clearTimeout(timeout);
-        cleanup();
-        resolve({ success: false, message: `${name}: ✗ Not found` });
-      });
+      runAttempt('--version');
     });
   }
 }
